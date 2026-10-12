@@ -1,0 +1,41 @@
+
+/session
+path che rappresenta l'utente non ancora loggato, essa "per il momento" è la radice del programma.
+
+• doLogin (see simplified login) ^
+
+
+/session/utente
+path che rappresenta l'utente loggato, ovviamente /utente sarà uguale ad {id} nella api finale.
+
+• setMyUserName
+• setMyPhoto
+
+
+/session/utente/conversazioni
+path che rappresenta la collezione di tutte le conversazioni dell'utente loggato, indistintamente 
+tra chat e gruppi.
+
+• getMyConversations
+• getConversation
+
+
+/session/utente/conversazioni/conversazione
+path che rappresenta una specifica conversazione dell'utente loggato, in questo caso conversazione 
+dovrà avere in {id} univoco, da definire se richiesto in path o in query.
+
+• sendMessage
+• forwardMessage
+• commentMessage
+• uncommentMessage
+• deleteMessage
+
+
+/session/utente/conversazioni/conversazione=gruppo
+questa path nello specifico rapprensenta una conversazione particolare, nello specifico rappresenta
+un gruppo, esso deve ereditare le stesse funzionalita di /conversazioni, e ne aggiunge di nuove.
+
+• addToGroup
+• leaveGroup
+• setGroupName
+• setGroupPhoto
