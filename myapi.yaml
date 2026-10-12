@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: Simplified login API specification
+  description: |-
+    Questo documento descrive le funzioni e le interazioni richieste dal progetto.
+    Progetto WASA 2026.
+  version: "1"
+paths:
+  /session:
+    post:
+      tags: ["login"]
+      summary: Log-in da parte dell'utente 
+      description: |-
+        Se l'utente non esiste, viene creato,
+        e l'identificatore viene ritornato dalla funzione.
+        Se l'utente esiste, l'identificatore utente viene ritornato.
+      operationId: doLogin
+      requestBody:
+        description: Dettagli Utente
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Maria
+                  pattern: '^.*?$'
+                  minLength: 3
+                  maxLength: 16
+        required: true
+      responses:
+        '201':
+          description: doLogin completato con successo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  identifier:
+                    # change here if you decide to use an integer
+                    # or any other type of identifier
+                    type: string
+                    example: "abcdef012345"
