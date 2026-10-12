@@ -5,7 +5,7 @@ path che rappresenta l'utente non ancora loggato.
 • doLogin (see simplified login) ^
 
 
-/utenti/{id}
+/utenti/{utenteID}
 path che rappresenta l'utente loggato.
 
 • setMyUserName (PATCH)

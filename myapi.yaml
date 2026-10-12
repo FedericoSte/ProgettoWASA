@@ -42,3 +42,122 @@ paths:
                     # or any other type of identifier
                     type: string
                     example: "abcdef012345"
+
+
+  /utenti/{utenteID}:
+    parameters:
+    - name: utenteID
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
+
+  /conversazioni:
+
+
+  /conversazioni/{conversazioneID}:
+    parameters:
+    - name: conversazioneID
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
+
+
+/conversazione/{conversazioneID}/partecipanti/{myUserID}:
+    parameters:
+    - name: conversazioneID
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
+    - name: myUserID
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
+
+
+/conversazione/{conversazioneID}/partecipanti/{userIdToAdd}:
+    parameters:
+    - name: conversazioneID
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
+    - name: userIdToAdd
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
+
+
+/conversazione/{conversazioneID}/messaggi:
+    parameters:
+    - name: conversazioneID
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
+
+
+/conversazione/{conversazioneID}/messaggi/{messaggioID}:
+    parameters:
+    - name: conversazioneID
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
+    - name: messaggioID
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
+
+
+/conversazione/{conversazioneID}/messaggi/{messaggioID}/commenti:
+    parameters:
+    - name: conversazioneID
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
+    - name: messaggioID
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
+
+
+
+/conversazione/{conversazioneID}/messaggi/{messaggioID}/commenti/{commentoID}:
+    parameters:
+    - name: conversazioneID
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
+    - name: messaggioID
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
+    - name: commentoID
+      in: path
+      description: Identificatore univoco della risorsa
+      required: true
+      schema:
+        type: string 
