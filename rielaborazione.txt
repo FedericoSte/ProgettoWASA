@@ -1,41 +1,107 @@
 
 /session
-path che rappresenta l'utente non ancora loggato, essa "per il momento" è la radice del programma.
+path che rappresenta l'utente non ancora loggato.
 
 • doLogin (see simplified login) ^
 
 
-/session/utente
-path che rappresenta l'utente loggato, ovviamente /utente sarà uguale ad {id} nella api finale.
+/utenti/{id}
+path che rappresenta l'utente loggato.
 
-• setMyUserName
-• setMyPhoto
+• setMyUserName (PATCH)
+• setMyPhoto    (PATCH)
 
 
-/session/utente/conversazioni
+Usiamo PATCH perché stiamo modificando parzialmente una risorsa esistente (l'utente).
+Nel body JSON manderai solo i campi da aggiornare,
+ad esempio {"name": "NuovoNome"} o {"photo": "base64_string_or_url"}
+
+
+/conversazioni
 path che rappresenta la collezione di tutte le conversazioni dell'utente loggato, indistintamente 
 tra chat e gruppi.
 
-• getMyConversations
-• getConversation
+• getMyConversations (GET)
+Dettaglio:
+Restituisce la lista (array) di tutte le conversazioni
+ a cui l'utente (identificato dal token) partecipa.
 
 
-/session/utente/conversazioni/conversazione
+
+
+/conversazioni/{conversazioneID}
 path che rappresenta una specifica conversazione dell'utente loggato, in questo caso conversazione 
-dovrà avere in {id} univoco, da definire se richiesto in path o in query.
+dovrà avere in {conversazioneID} univoco, da definire se richiesto in path o in query.
 
-• sendMessage
-• forwardMessage
-• commentMessage
-• uncommentMessage
-• deleteMessage
+• getConversation (GET)
+Dettaglio: 
+Restituisce i dettagli di una specifica conversazione 
+(es. lista dei partecipanti, tipo, nome, foto del gruppo).
+
+• setGroupName (PATCH)
+• setGroupPhoto (PATCH)
+Dettaglio:
+Modifica parziale della conversazione. Nel body manderai {"name": "Nuovo Gruppo"}. 
+Il backend verificherà se la conversazione è di tipo "gruppo" 
+e se l'utente ha i permessi prima di applicare la modifica.
 
 
-/session/utente/conversazioni/conversazione=gruppo
-questa path nello specifico rapprensenta una conversazione particolare, nello specifico rappresenta
-un gruppo, esso deve ereditare le stesse funzionalita di /conversazioni, e ne aggiunge di nuove.
+/conversazione/{conversazioneID}/partecipanti/{myUserID}
 
-• addToGroup
-• leaveGroup
-• setGroupName
-• setGroupPhoto
+• leaveGroup (DELETE)
+Dettaglio: 
+Rimuove un utente dalla lista dei partecipanti del gruppo.
+
+
+/conversazione/{conversazioneID}/partecipanti/{userIdToAdd}
+
+• addToGroup (PUT)
+Dettaglio: 
+Aggiungiamo una sub-risorsa. Stiamo dicendo "Inserisci questo specifico 
+utente nella lista dei partecipanti di questa conversazione".
+
+
+
+
+/conversazione/{conversazioneID}/messaggi
+Path che rappresenta la collezione di tutti i messaggi della specifica conversazione.
+
+• sendMessage (POST)
+Dettaglio: Crea un nuovo messaggio all'interno di una specifica conversazione.
+ Il body conterrà il testo.
+
+
+• forwardMessage (POST)
+Dettaglio: 
+In REST, inoltrare è semplicemente "creare un nuovo messaggio che 
+fa riferimento a un altro". Lo endpoint è lo stesso di sendMessage, 
+ma nel body JSON avrai un attributo aggiuntivo, 
+ad esempio: {"text": "guarda questo", "forwardedFromMsgId": "12345"}.
+
+/conversazione/{conversazioneID}/messaggi/{messaggioID}
+
+• deleteMessage (DELETE)
+Dettaglio: 
+Elimina una risorsa specifica. 
+Nota che puntiamo direttamente al messaggio tramite il suo ID univoco, 
+non serve passare per la conversazione.
+
+/conversazione/{conversazioneID}/messaggi/{messaggioID}/commenti
+
+• commentMessage (POST)
+Dettaglio: 
+Se su Telegram intendi "Rispondi a un messaggio" (Reply), 
+la soluzione REST migliore è inviare un normale messaggio 
+specificando a chi risponde nel payload: 
+{"text": "Ottima idea!", "replyToMsgId": "12345"}. 
+Se invece il "commento" è inteso come una reazione/thread isolato, 
+usi il path nidificato POST /messages/{id}/comments.
+
+/conversazione/{conversazioneID}/messaggi/{messaggioID}/commenti/{commentoID}
+
+• uncommentMessage (DELETE)
+Dettaglio: 
+Elimina lo specifico commento/risposta associato a un messaggio.
+
+
+
