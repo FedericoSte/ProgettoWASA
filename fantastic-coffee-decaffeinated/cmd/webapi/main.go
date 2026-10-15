@@ -58,9 +58,6 @@ func main() {
 // * waits for any termination event: SIGTERM signal (UNIX), non-recoverable server error, etc.
 // * closes the principal web server
 func run() error {
-	// rand.Seed è stato rimosso in quanto deprecato nelle nuove versioni di Go.
-	// Go 1.20+ gestisce il seed globale automaticamente.
-
 	// Load Configuration and defaults
 	cfg, err := loadConfiguration()
 	if err != nil {
@@ -92,7 +89,7 @@ func run() error {
 		logger.Debug("database stopping")
 		_ = dbconn.Close()
 	}()
-	_, err = database.New(dbconn) // db assegnato a _, verrà usato in seguito
+	db, err := database.New(dbconn)
 	if err != nil {
 		logger.WithError(err).Error("error creating AppDatabase")
 		return fmt.Errorf("creating AppDatabase: %w", err)
@@ -104,7 +101,6 @@ func run() error {
 	// Make a channel to listen for an interrupt or terminate signal from the OS.
 	// Use a buffered channel because the signal package requires it.
 	shutdown := make(chan os.Signal, 1)
-	// Rimosso syscall.SIGSTOP che causava problemi di compilazione su Windows
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT)
 
 	// Make a channel to listen for errors coming from the listener. Use a
@@ -112,10 +108,9 @@ func run() error {
 	serverErrors := make(chan error, 1)
 
 	// Create the API router
-	// CORREZIONE: Assegnamento singolo (senza err) e uso di api.APIConfig
 	apirouter := api.New(api.APIConfig{
-		Logger: logger,
-		// Database: db, // Lo rimetteremo quando aggiorneremo api.APIConfig
+		Logger:   logger,
+		Database: db,
 	})
 
 	router := apirouter
@@ -164,7 +159,6 @@ func run() error {
 			err = apiserver.Close()
 		}
 
-		// Rimosso lo switch fallato su syscall.SIGSTOP
 		if err != nil {
 			return fmt.Errorf("could not stop server gracefully: %w", err)
 		}

@@ -120,3 +120,54 @@ Elimina lo specifico commento/risposta associato a un messaggio.
 
 
 
+4 fasi da seguire per lo sviluppo del backend:
+
+Fase 1: 
+Modellazione dei Dati (Le Struct)
+Il primo vero passo nello sviluppo Go è tradurre gli schemi YAML 
+che abbiamo appena definito in Struct di Go. 
+Questo avverrà presumibilmente all'interno della cartella service/.  
+Dovrai creare le struct per User, Message, Conversation e Comment.
+Per far sì che Go riesca a convertire automaticamente queste struct in JSON da 
+inviare al frontend (e viceversa), dovrai usare i tag JSON. 
+
+
+Fase 2: 
+Il Livello Database (service/database/database.go)
+Guardando i file del tuo progetto, 
+hai una cartella service/database/ che contiene già file come get-name.go 
+e set-name.go, e la cartella vendor include mattn/go-sqlite3. 
+Questo significa che i dati non staranno solo in memoria (Mappe e Slice),
+ma andranno salvati in un database SQLite.
+Dovrai progettare lo schema del database: creare le tabelle per users, 
+conversations, messages, participants e comments.
+Implementerai le query SQL all'interno del pacchetto database,
+esponendo funzioni Go sicure (es. CreateUser, AddMessage, GetConversations) 
+in modo che il resto del programma non debba mai scrivere query SQL direttamente.   
+
+
+Fase 3: 
+Sicurezza e Concorrenza (Il Core di Go)
+Il pacchetto net/http di Go lancia una Goroutine separata 
+per ogni singola richiesta HTTP in arrivo. 
+Questo significa che la tua API gestirà chiamate parallele di default.   
+Se due utenti inviano un messaggio nello stesso istante, 
+due Goroutine proveranno ad accedere al database o alla memoria condivisa contemporaneamente.
+Anche se SQLite gestisce parte della concorrenza, 
+dovrai fare molta attenzione quando manipoli dati in memoria, 
+utilizzando i sync.Mutex per creare sezioni critiche ed evitare le temute Race Condition. 
+
+
+
+Fase 4: 
+Gli Handler API (service/api/api.go)
+Questa è la parte in cui colleghi le richieste HTTP (il tuo file OpenAPI)
+alle funzioni del database. 
+Nel file service/api/api.go (e nei file adiacenti come get-hello-world.go del template) 
+implementerai i veri e propri endpoint. 
+Dovrai estrarre i parametri dal body della richiesta (decodificando il JSON in Struct Go).   
+Dovrai implementare la logica del Bearer Token: 
+estrarre l'identificativo dall'header Authorization, verificare che l'utente esista nel database,
+e solo dopo consentirgli di completare l'azione. 
+Infine, dovrai formattare la risposta corretta 
+(es. 201 Created o 400 Bad Request) e inviarla al client JavaScript.   

@@ -1,33 +1,3 @@
-/*
-Package database is the middleware between the app database and the code. All data (de)serialization (save/load) from a
-persistent database are handled here. Database specific logic should never escape this package.
-
-To use this package you need to apply migrations to the database if needed/wanted, connect to it (using the database
-data source name from config), and then initialize an instance of AppDatabase from the DB connection.
-
-For example, this code adds a parameter in `webapi` executable for the database data source name (add it to the
-main.WebAPIConfiguration structure):
-
-	DB struct {
-		Filename string `conf:""`
-	}
-
-This is an example on how to migrate the DB and connect to it:
-
-	// Start Database
-	logger.Println("initializing database support")
-	db, err := sql.Open("sqlite3", "./foo.db")
-	if err != nil {
-		logger.WithError(err).Error("error opening SQLite DB")
-		return fmt.Errorf("opening SQLite: %w", err)
-	}
-	defer func() {
-		logger.Debug("database stopping")
-		_ = db.Close()
-	}()
-
-Then you can initialize the AppDatabase and pass it to the api package.
-*/
 package database
 
 import (
@@ -38,28 +8,97 @@ import (
 
 // AppDatabase is the high level interface for the DB
 type AppDatabase interface {
-	GetName() (string, error)
-	SetName(name string) error
-
 	Ping() error
+	DoLogin(username string) (string, error)
+	CheckToken(token string) (bool, error)
+	GetMyConversations(userID string) ([]Conversation, error)
+	GetConversation(conversationID string, userID string) (Conversation, error)
+	SendMessage(msg Message, conversationID string) (Message, error)
+	ForwardMessage(originalMessageID string, targetConversationID string, senderID string) (Message, error)
+	DeleteMessage(messageID string, callerID string) error
+	AddToGroup(conversationID string, userID string, callerID string) error
+	LeaveGroup(conversationID string, userID string) error
+	SetMyUserName(userID string, newName string) error
+	SetMyPhoto(userID string, photoPath string) error
+	// NUOVE FIRME:
+	SetGroupName(conversationID string, newName string, callerID string) error
+	SetGroupPhoto(conversationID string, photoPath string, callerID string) error
+	CommentMessage(comment Comment, messageID string, conversationID string) error
+	UncommentMessage(commentID string, messageID string, conversationID string, callerID string) error
 }
 
 type appdbimpl struct {
 	c *sql.DB
 }
 
-// New returns a new instance of AppDatabase based on the SQLite connection `db`.
-// `db` is required - an error will be returned if `db` is `nil`.
+// New initializes the database and creates tables if they don't exist.
 func New(db *sql.DB) (AppDatabase, error) {
 	if db == nil {
 		return nil, errors.New("database is required when building a AppDatabase")
 	}
 
-	// Check if table exists. If not, the database is empty, and we need to create the structure
+	// Abilitiamo le Foreign Keys in SQLite (di default sono disabilitate)
+	_, err := db.Exec("PRAGMA foreign_keys = ON;")
+	if err != nil {
+		return nil, fmt.Errorf("error enabling foreign keys: %w", err)
+	}
+
+	// Controlliamo se la tabella 'users' esiste. Se non esiste, il DB è vuoto e creiamo le tabelle.
 	var tableName string
-	err := db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='example_table';`).Scan(&tableName)
+	err = db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='users';`).Scan(&tableName)
 	if errors.Is(err, sql.ErrNoRows) {
-		sqlStmt := `CREATE TABLE example_table (id INTEGER NOT NULL PRIMARY KEY, name TEXT);`
+		sqlStmt := `
+		CREATE TABLE users (
+			id TEXT PRIMARY KEY,
+			name TEXT UNIQUE NOT NULL,
+			photo TEXT
+		);
+
+		CREATE TABLE conversations (
+			id TEXT PRIMARY KEY,
+			type TEXT NOT NULL, -- 'single' o 'group'
+			name TEXT,
+			photo TEXT
+		);
+
+		CREATE TABLE participants (
+			conversation_id TEXT NOT NULL,
+			user_id TEXT NOT NULL,
+			PRIMARY KEY (conversation_id, user_id),
+			FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		);
+
+		CREATE TABLE messages (
+			id TEXT PRIMARY KEY,
+			conversation_id TEXT NOT NULL,
+			sender TEXT NOT NULL,
+			content TEXT NOT NULL,
+			type TEXT NOT NULL,
+			reply_to TEXT,
+			timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+			FOREIGN KEY (sender) REFERENCES users(id) ON DELETE CASCADE
+		);
+
+		CREATE TABLE comments (
+			id TEXT PRIMARY KEY,
+			message_id TEXT NOT NULL,
+			author TEXT NOT NULL,
+			content TEXT NOT NULL,
+			FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+			FOREIGN KEY (author) REFERENCES users(id) ON DELETE CASCADE
+		);
+
+		CREATE TABLE message_status (
+			message_id TEXT NOT NULL,
+			user_id TEXT NOT NULL,
+			status TEXT NOT NULL, -- 'received' o 'read'
+			PRIMARY KEY (message_id, user_id),
+			FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		);
+		`
 		_, err = db.Exec(sqlStmt)
 		if err != nil {
 			return nil, fmt.Errorf("error creating database structure: %w", err)

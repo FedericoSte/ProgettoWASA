@@ -7,14 +7,17 @@ Each value here should be assumed valid only per request only, with some excepti
 package reqcontext
 
 import (
-	"github.com/gofrs/uuid"
 	"github.com/sirupsen/logrus"
 )
 
 // RequestContext is the context of the request, for request-dependent parameters
+
+// RequestContext is the context of the current HTTP request.
+// It contains the request ID and, se autenticato, l'ID dell'utente.
 type RequestContext struct {
-	// ReqUUID is the request unique ID
-	ReqUUID uuid.UUID
+	ReqUUID string
+
+	UserID string // <- AGGIUNTO: Conterrà l'ID dell'utente se il Bearer token è valido
 
 	// Logger is a custom field logger for the request
 	Logger logrus.FieldLogger
