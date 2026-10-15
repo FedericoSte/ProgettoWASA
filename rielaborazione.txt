@@ -5,10 +5,13 @@ path che rappresenta l'utente non ancora loggato.
 • doLogin (see simplified login) ^
 
 
-/utenti/{utenteID}
-path che rappresenta l'utente loggato.
+/utenti/{utenteID}/nome
+path che rappresenta il nome dell'utente loggato.
 
 • setMyUserName (PATCH)
+
+/utenti/{utenteID}/foto
+path che rappresenta la risorsa foto dell'utente loggato.
 • setMyPhoto    (PATCH)
 
 
@@ -29,6 +32,8 @@ Restituisce la lista (array) di tutte le conversazioni
 
 
 
+
+
 /conversazioni/{conversazioneID}
 path che rappresenta una specifica conversazione dell'utente loggato, in questo caso conversazione 
 dovrà avere in {conversazioneID} univoco, da definire se richiesto in path o in query.
@@ -38,27 +43,35 @@ Dettaglio:
 Restituisce i dettagli di una specifica conversazione 
 (es. lista dei partecipanti, tipo, nome, foto del gruppo).
 
+
+/conversazioni/{conversazioneID}/partecipanti
+
+• leaveGroup (DELETE)
+Dettaglio: 
+Rimuove un utente dalla lista dei partecipanti del gruppo.
+richiede l'dentificativo 
+
+
+• addToGroup (POST)
+Dettaglio: 
+crea una nuova risorsa 
+
+
+
+
+/conversazioni/{conversazioneID}/groupName
 • setGroupName (PATCH)
+
+/conversazioni/{conversazioneID}/groupPhoto
 • setGroupPhoto (PATCH)
+
+
 Dettaglio:
 Modifica parziale della conversazione. Nel body manderai {"name": "Nuovo Gruppo"}. 
 Il backend verificherà se la conversazione è di tipo "gruppo" 
 e se l'utente ha i permessi prima di applicare la modifica.
 
 
-/conversazione/{conversazioneID}/partecipanti/{myUserID}
-
-• leaveGroup (DELETE)
-Dettaglio: 
-Rimuove un utente dalla lista dei partecipanti del gruppo.
-
-
-/conversazione/{conversazioneID}/partecipanti/{userIdToAdd}
-
-• addToGroup (PUT)
-Dettaglio: 
-Aggiungiamo una sub-risorsa. Stiamo dicendo "Inserisci questo specifico 
-utente nella lista dei partecipanti di questa conversazione".
 
 
 
@@ -70,15 +83,17 @@ Path che rappresenta la collezione di tutti i messaggi della specifica conversaz
 Dettaglio: Crea un nuovo messaggio all'interno di una specifica conversazione.
  Il body conterrà il testo.
 
-
-• forwardMessage (POST)
 Dettaglio: 
 In REST, inoltrare è semplicemente "creare un nuovo messaggio che 
 fa riferimento a un altro". Lo endpoint è lo stesso di sendMessage, 
 ma nel body JSON avrai un attributo aggiuntivo, 
 ad esempio: {"text": "guarda questo", "forwardedFromMsgId": "12345"}.
 
+
+
 /conversazione/{conversazioneID}/messaggi/{messaggioID}
+
+• forwardMessage (POST) ?????????
 
 • deleteMessage (DELETE)
 Dettaglio: 

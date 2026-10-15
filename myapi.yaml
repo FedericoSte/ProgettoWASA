@@ -20,14 +20,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  example: Maria
-                  pattern: '^.*?$'
-                  minLength: 3
-                  maxLength: 16
+              $ref: '#/components/schemas/utente'
         required: true
       responses:
         '201':
@@ -42,19 +35,127 @@ paths:
                     # or any other type of identifier
                     type: string
                     example: "abcdef012345"
+        
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '403':
+          $ref: '#/components/responses/403_Forbidden'
+        '404':
+          description: utente non trovato.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+        '409':
+          $ref: '#/components/responses/409_Conflict'
+
+  /utenti/me/username:
+    patch:
+      tags: ["setMyUserName"]
+      summary: cambia l'username dell'utente 
+      description: cambia lo username dell'utente con la stringa ricevuta nel json in ingresso
+      operationId: setMyUserName
+      security: 
+      - bearerAuth: []
+      requestBody:
+        description: nell'header della richiesta il server si aspetta una stringa, la quale rappresenta il nuovo username
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: nome modificato con successo, la richesta torna il nuovo username inserito
+          content:
+            application/json:
+              schema:
+                type: string 
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '403':
+          $ref: '#/components/responses/403_Forbidden'
+        '404':
+          description: utente non trovato.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+        '409':
+          $ref: '#/components/responses/409_Conflict'
 
 
-  /utenti/{utenteID}:
-    parameters:
-    - name: utenteID
-      in: path
-      description: Identificatore univoco della risorsa
-      required: true
-      schema:
-        type: string 
+  /utenti/me/photo:
+    patch:
+      tags: ["setMyPhoto"]
+      summary: cambia l'username dell'utente 
+      description: cambia lo username dell'utente con la stringa ricevuta nel json in ingresso
+      operationId: setMyPhoto
+      security: 
+      - bearerAuth: []
+      requestBody:
+        description: nell'header della richiesta il server si aspetta una stringa, la quale rappresenta la path della nuova foto
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: nome modificato con successo, la richesta torna il nuovo username inserito
+          content:
+            application/json:
+              schema:
+                type: string 
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '403':
+          $ref: '#/components/responses/403_Forbidden'
+        '404':
+          description: utente non trovato.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+        '409':
+          $ref: '#/components/responses/409_Conflict'
+
 
   /conversazioni:
-
+    get:
+      tags: ["getMyConversations"]
+      summary: lista tutte le conversazioni
+      description: ritorna l'array di tutte le conversazioni dell'utente 
+      operationId: getMyConversations
+      security: 
+      - bearerAuth: []
+      responses:
+        '200':
+          description: ritorna un array di conversazioni
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/conversazione'
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '403':
+          $ref: '#/components/responses/403_Forbidden'
+        '404':
+          description: array delle conversazioni non trovato.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+        '409':
+          $ref: '#/components/responses/409_Conflict'
 
   /conversazioni/{conversazioneID}:
     parameters:
@@ -64,9 +165,37 @@ paths:
       required: true
       schema:
         type: string 
+    get:
+      tags: ["getConversation"]
+      summary: ottieni una conversazione specifica 
+      description: ritorna l'array di tutte le conversazioni dell'utente 
+      operationId: getConversation
+      security: 
+      - bearerAuth: []
+      responses:
+        '200':
+          description: ritorna la conversazione con id=conversazioneID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/conversazione'
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '403':
+          $ref: '#/components/responses/403_Forbidden'
+        '404':
+          description: conversazione non trovata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+        '409':
+          $ref: '#/components/responses/409_Conflict'
 
 
-/conversazione/{conversazioneID}/partecipanti/{myUserID}:
+  /conversazioni/{conversazioneID}/groupName:
     parameters:
     - name: conversazioneID
       in: path
@@ -74,15 +203,43 @@ paths:
       required: true
       schema:
         type: string 
-    - name: myUserID
-      in: path
-      description: Identificatore univoco della risorsa
-      required: true
-      schema:
-        type: string 
+    patch:
+      tags: ["setGroupName"]
+      summary: modifica il nome del gruppo specificato da conversazioneID
+      description: richiede la stringa con il nuovo nome nel json della richiesta
+      operationId: setGroupName
+      security: 
+      - bearerAuth: []
+      requestBody:
+        description: nell'header della richiesta il server si aspetta una stringa, la quale rappresenta il nuovo groupName
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: ritorna il nuovo nome impostato al gruppo
+          content:
+            application/json:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '403':
+          $ref: '#/components/responses/403_Forbidden'
+        '404':
+          description: conversazione non trovata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+        '409':
+          $ref: '#/components/responses/409_Conflict'
 
 
-/conversazione/{conversazioneID}/partecipanti/{userIdToAdd}:
+  /conversazioni/{conversazioneID}/groupPhoto:
     parameters:
     - name: conversazioneID
       in: path
@@ -90,15 +247,118 @@ paths:
       required: true
       schema:
         type: string 
-    - name: userIdToAdd
+    patch:
+      tags: ["setGroupPhoto"]
+      summary: modifica la foto del gruppo specificato da conversazioneID
+      description: richiede la stringa con la path della nuova foto nel json della richiesta
+      operationId: setGroupPhoto
+      security: 
+      - bearerAuth: []
+      requestBody:
+        description: nell'header della richiesta il server si aspetta una stringa, la quale rappresenta la path della nuova foto del gruppo
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: ritorna la path della foto appena impostata 
+          content:
+            application/json:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '403':
+          $ref: '#/components/responses/403_Forbidden'
+        '404':
+          description: conversazione non trovata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+        '409':
+          $ref: '#/components/responses/409_Conflict'
+
+
+
+
+
+  /conversazione/{conversazioneID}/partecipanti:
+    parameters:
+    - name: conversazioneID
       in: path
-      description: Identificatore univoco della risorsa
+      description: Identificatore univoco della risorsa conversazione
       required: true
       schema:
         type: string 
 
+    post:
+      tags: ["addToGroup"]
+      summary: aggiungi un nuovo utente al gruppo
+      description: richiede nel body il nuovo utente da aggiungere alla lista dei partecipanti del gruppo
+      operationId: addToGroup
+      security: 
+      - bearerAuth: []
+      requestBody:
+        description: nell'header della richiesta il server si aspetta una stringa, la quale rappresenta l'utente da aggiungere al gruppo
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/utente'
+        required: true
+      responses:
+        '200':
+          description: ritorna lo username dell'utente appena aggiunto 
+          content:
+            application/json:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '403':
+          $ref: '#/components/responses/403_Forbidden'
+        '404':
+          description: conversazione non trovata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+        '409':
+          $ref: '#/components/responses/409_Conflict'
 
-/conversazione/{conversazioneID}/messaggi:
+
+    delete: 
+      tags: ["leaveGroup"]
+      summary: Rimuovi te stesso dal gruppo
+      description: L'utente autenticato esce dalla conversazione di gruppo. L'identità dell'utente viene dedotta dal token di autorizzazione.
+      operationId: leaveGroup
+      security: 
+        - bearerAuth: []
+      # NESSUN requestBody qui!
+      responses:
+        '204':
+          description: Sei uscito dal gruppo con successo. Nessun contenuto restituito.
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '403':
+          $ref: '#/components/responses/403_Forbidden'
+        '404':
+          description: conversazione o utente non trovata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+        '409':
+          $ref: '#/components/responses/409_Conflict'
+
+  /conversazione/{conversazioneID}/messaggi:
     parameters:
     - name: conversazioneID
       in: path
@@ -107,8 +367,82 @@ paths:
       schema:
         type: string 
 
+    post: 
+      tags: ["sendMessage"]
+      summary:  Crea un nuova risorsa messaggio all'interno della collezione /messaggi
+      description: viene creata una nuova risorsa all'interno della collezione /messaggi, i body della richiesta conterrà la stringa del messaggio.
+      operationId: sendMessage
+      security: 
+        - bearerAuth: []
+      requestBody:
+        description: nell'header della richiesta il server si aspetta una stringa, la quale rappresenta il nuovo messaggio
+        content:
+          application/json:
+            schema:
+              type: string
+        required: true
+      responses:
+        '204':
+          description: Sei uscito dal gruppo con successo. Nessun contenuto restituito.
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '403':
+          $ref: '#/components/responses/403_Forbidden'
+        '404':
+          description: Gruppo non trovato o l'utente non faceva parte dei partecipanti.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+        '409':
+          $ref: '#/components/responses/409_Conflict'
 
-/conversazione/{conversazioneID}/messaggi/{messaggioID}:
+  /conversazione/{conversazioneID}/messaggi/{messaggioID}:
+    parameters:
+    - name: conversazioneID
+      in: path
+      description: Identificatore univoco della risorsa conversazione
+      required: true
+      schema:
+        type: string 
+    - name: messaggioID
+      in: path
+      description: Identificatore univoco della risorsa messaggio
+      required: true
+      schema:
+        type: string 
+
+    delete: 
+      tags: ["deleteMessage"]
+      summary:  elimina un messaggio inviato dall'utente "me" nella conversazione specifica
+      description: l'identificatore del messaggio da eliminare viene passato nella path, in quento le richieste delete non richiedono body.
+      operationId: deleteMessage
+      security: 
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Sei uscito dal gruppo con successo. Nessun contenuto restituito.
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '403':
+          $ref: '#/components/responses/403_Forbidden'
+        '404':
+          description: messaggio non trovato.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+        '409':
+          $ref: '#/components/responses/409_Conflict'
+
+
+
+
+  /conversazione/{conversazioneID}/messaggi/{messaggioID}/commenti:
     parameters:
     - name: conversazioneID
       in: path
@@ -123,25 +457,39 @@ paths:
       schema:
         type: string 
 
+    post: 
+      tags: ["commentMessage"]
+      summary:  Crea un nuova risorsa commento all'interno della collezione /commenti
+      description: viene creata una nuova risorsa all'interno della collezione /commenti, i body della richiesta conterrà la stringa del commento al messaggio={messaggioID}.
+      operationId: commentMessage
+      security: 
+        - bearerAuth: []
+      requestBody:
+        description: nell'header della richiesta il server si aspetta una stringa, la quale rappresenta il nuovo commento
+        content:
+          application/json:
+            schema:
+              type: string
+        required: true
+      responses:
+        '204':
+          description: Sei uscito dal gruppo con successo. Nessun contenuto restituito.
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '403':
+          $ref: '#/components/responses/403_Forbidden'
+        '404':
+          description: messaggio non trovato.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+        '409':
+          $ref: '#/components/responses/409_Conflict'
 
-/conversazione/{conversazioneID}/messaggi/{messaggioID}/commenti:
-    parameters:
-    - name: conversazioneID
-      in: path
-      description: Identificatore univoco della risorsa
-      required: true
-      schema:
-        type: string 
-    - name: messaggioID
-      in: path
-      description: Identificatore univoco della risorsa
-      required: true
-      schema:
-        type: string 
-
-
-
-/conversazione/{conversazioneID}/messaggi/{messaggioID}/commenti/{commentoID}:
+  /conversazione/{conversazioneID}/messaggi/{messaggioID}/commenti/{commentoID}:
     parameters:
     - name: conversazioneID
       in: path
@@ -161,3 +509,95 @@ paths:
       required: true
       schema:
         type: string 
+
+    delete: 
+      tags: ["uncommentMessage"]
+      summary:  Elimina un commento all'interno della collezione /commenti
+      description: viene eliminata risorsa all'interno della collezione /commenti
+      operationId: uncommentMessage
+      security: 
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Sei uscito dal gruppo con successo. Nessun contenuto restituito.
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '403':
+          $ref: '#/components/responses/403_Forbidden'
+        '404':
+          description: commento non trovato.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardError'
+        '409':
+          $ref: '#/components/responses/409_Conflict'
+
+components:
+  schemas:
+    messaggio:
+      type: string
+      description: "Rappresenta l'oggetto messaggio"
+    conversazione:
+      type: array
+      description: "Rappresenta l'oggetto conversazione, ovvero un array di messaggi"
+      items:
+        $ref: '#/components/schemas/messaggio'
+    utente:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Maria
+          pattern: '^.*?$'
+          minLength: 3
+          maxLength: 16
+    StandardError:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Descrizione dettagliata dell'errore ad uso del frontend.
+      required:
+        - error
+
+# ---------------- CLIENT ERRORS (escluso 404)---------------- #
+  responses:
+    '400_BadRequest':
+      description: La richiesta è malformata, mancano campi obbligatori o i dati non rispettano lo schema.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardError'
+          example:
+            error: "Il campo username deve essere lungo almeno 3 caratteri."
+
+    '401_Unauthorized':
+      description: L'utente non è autenticato. L'header Authorization manca, è malformato o l'identificatore non è valido.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardError'
+          example:
+            error: "Token Bearer mancante o non valido."
+
+    '403_Forbidden':
+      description: L'utente è autenticato ma non ha i permessi necessari per compiere questa azione (es. modificare un gruppo di cui non fa parte).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardError'
+          example:
+            error: "Non hai i permessi per eseguire questa operazione su questo gruppo."
+
+            
+    '409_Conflict':
+      description: L'operazione crea un conflitto con lo stato attuale del server (es. username già esistente, utente già presente nel gruppo).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardError'
+          example:
+            error: "Questo username è già in uso da un altro utente."
