@@ -64,7 +64,10 @@ paths:
         content:
           application/json:
             schema:
-              type: string
+              type: object
+              properties:
+                newUsername:  
+                  type: string
       responses:
         '200':
           description: nome modificato con successo, la richesta torna il nuovo username inserito
@@ -101,7 +104,10 @@ paths:
         content:
           application/json:
             schema:
-              type: string
+              type: object
+              properties:
+                photoPath:  
+                  type: string
       responses:
         '200':
           description: nome modificato con successo, la richesta torna il nuovo username inserito
@@ -214,8 +220,10 @@ paths:
         description: nell'header della richiesta il server si aspetta una stringa, la quale rappresenta il nuovo groupName
         content:
           application/json:
-            schema:
-              type: string
+              type: object
+              properties:
+                newUsername:  
+                  type: string
       responses:
         '200':
           description: ritorna il nuovo nome impostato al gruppo
@@ -258,8 +266,10 @@ paths:
         description: nell'header della richiesta il server si aspetta una stringa, la quale rappresenta la path della nuova foto del gruppo
         content:
           application/json:
-            schema:
-              type: string
+              type: object
+              properties:
+                photoPath:  
+                  type: string
       responses:
         '200':
           description: ritorna la path della foto appena impostata 
@@ -286,7 +296,7 @@ paths:
 
 
 
-  /conversazione/{conversazioneID}/partecipanti:
+  /conversazioni/{conversazioneID}/partecipanti:
     parameters:
     - name: conversazioneID
       in: path
@@ -358,7 +368,27 @@ paths:
         '409':
           $ref: '#/components/responses/409_Conflict'
 
-  /conversazione/{conversazioneID}/messaggi:
+  /conversazioni/{conversazioneID}/messaggi/forward:
+      post:
+        tags: ["forwardMessage"]
+        summary: Inoltra un messaggio
+        operationId: forwardMessage
+        security: 
+          - bearerAuth: []
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  forwardedMessageId:
+                    type: string
+        responses:
+          '201':
+            description: Messaggio inoltrato
+
+  /conversazioni/{conversazioneID}/messaggi:
     parameters:
     - name: conversazioneID
       in: path
@@ -378,8 +408,10 @@ paths:
         description: nell'header della richiesta il server si aspetta una stringa, la quale rappresenta il nuovo messaggio
         content:
           application/json:
-            schema:
-              type: string
+              type: object
+              properties:
+                newMessage:  
+                  type: string
         required: true
       responses:
         '204':
@@ -399,7 +431,7 @@ paths:
         '409':
           $ref: '#/components/responses/409_Conflict'
 
-  /conversazione/{conversazioneID}/messaggi/{messaggioID}:
+  /conversazioni/{conversazioneID}/messaggi/{messaggioID}:
     parameters:
     - name: conversazioneID
       in: path
@@ -442,7 +474,7 @@ paths:
 
 
 
-  /conversazione/{conversazioneID}/messaggi/{messaggioID}/commenti:
+  /conversazioni/{conversazioneID}/messaggi/{messaggioID}/commenti:
     parameters:
     - name: conversazioneID
       in: path
@@ -468,8 +500,10 @@ paths:
         description: nell'header della richiesta il server si aspetta una stringa, la quale rappresenta il nuovo commento
         content:
           application/json:
-            schema:
-              type: string
+              type: object
+              properties:
+                newComment:  
+                  type: string
         required: true
       responses:
         '204':
@@ -489,7 +523,7 @@ paths:
         '409':
           $ref: '#/components/responses/409_Conflict'
 
-  /conversazione/{conversazioneID}/messaggi/{messaggioID}/commenti/{commentoID}:
+  /conversazioni/{conversazioneID}/messaggi/{messaggioID}/commenti/{commentoID}:
     parameters:
     - name: conversazioneID
       in: path
@@ -538,13 +572,34 @@ paths:
 components:
   schemas:
     messaggio:
-      type: string
-      description: "Rappresenta l'oggetto messaggio"
+          type: object
+          properties:
+            id:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+            sender:
+              type: string
+            content:
+              type: string
+            type:
+              type: string
+              enum: [text, photo]
+            checkmarks:
+              type: integer
+              enum: [0, 1, 2]
     conversazione:
-      type: array
-      description: "Rappresenta l'oggetto conversazione, ovvero un array di messaggi"
-      items:
-        $ref: '#/components/schemas/messaggio'
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            photo:
+              type: string
+            lastMessage:
+              type: string
     utente:
       type: object
       properties:
@@ -562,6 +617,11 @@ components:
           description: Descrizione dettagliata dell'errore ad uso del frontend.
       required:
         - error
+    securitySchemes:
+        bearerAuth:
+          type: http
+          scheme: bearer
+          description: "L'identificatore restituito da /session"
 
 # ---------------- CLIENT ERRORS (escluso 404)---------------- #
   responses:
