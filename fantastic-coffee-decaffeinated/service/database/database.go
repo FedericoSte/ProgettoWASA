@@ -20,11 +20,14 @@ type AppDatabase interface {
 	LeaveGroup(conversationID string, userID string) error
 	SetMyUserName(userID string, newName string) error
 	SetMyPhoto(userID string, photoPath string) error
-	// NUOVE FIRME:
 	SetGroupName(conversationID string, newName string, callerID string) error
 	SetGroupPhoto(conversationID string, photoPath string, callerID string) error
 	CommentMessage(comment Comment, messageID string, conversationID string) error
 	UncommentMessage(commentID string, messageID string, conversationID string, callerID string) error
+	CreateConversation(name string, creatorID string) (Conversation, error)
+
+	// NUOVA FIRMA PER LE SPUNTE E IL LETTO:
+	UpdateConversationStatus(conversationID string, userID string, status string) error
 }
 
 type appdbimpl struct {

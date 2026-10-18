@@ -16,6 +16,7 @@ type Conversation struct {
 	Photo       string    `json:"photo,omitempty"`
 	LastMessage string    `json:"lastMessage,omitempty"`
 	Messages    []Message `json:"messages,omitempty"`
+	UnreadCount int       `json:"unreadCount"` // Aggiunto per le notifiche stile WhatsApp
 }
 
 // Message rappresenta un singolo messaggio all'interno di una conversazione.
@@ -27,6 +28,7 @@ type Message struct {
 	Type       string    `json:"type"` // "text" o "photo"
 	Checkmarks int       `json:"checkmarks"`
 	Reactions  []Comment `json:"reactions,omitempty"`
+	Status     string    `json:"status,omitempty"` // Aggiunto per le doppie spunte ('sent', 'received', 'read')
 }
 
 // Comment rappresenta una reazione a un messaggio.

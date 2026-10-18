@@ -373,3 +373,63 @@ func (rt *_router) uncommentMessage(w http.ResponseWriter, r *http.Request, ps h
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// createConversation crea una nuova conversazione e aggiunge il creatore come partecipante.
+// Endpoint: POST /conversazioni
+func (rt *_router) createConversation(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
+	creatorID := ctx.UserID
+
+	// 1. Decodifica il body JSON. Ci aspettiamo opzionalmente un "name"
+	type createReq struct {
+		Name string `json:"name"`
+	}
+	var req createReq
+	// Ignoriamo l'errore qui, perché il nome è opzionale
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	// 2. Chiamata al Database per creare la conversazione
+	// ATTENZIONE: Assicurati che il tuo database.go abbia un metodo CreateConversation(name, creatorID)
+	newGroup, err := rt.db.CreateConversation(req.Name, creatorID)
+	if err != nil {
+		rt.baseLogger.WithError(err).Error("Errore durante la creazione della conversazione")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(errorResponse{Error: "Errore interno del server"})
+		return
+	}
+
+	// 3. Risposta di successo (201 Created)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(newGroup)
+}
+
+// updateChatStatus permette a un utente di segnalare che ha ricevuto o letto i messaggi
+// Endpoint: PATCH /conversazioni/:conversazioneID/status
+func (rt *_router) updateChatStatus(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
+	userID := ctx.UserID
+	conversationID := ps.ByName("conversazioneID")
+
+	type statusReq struct {
+		Status string `json:"status"` // 'received' o 'read'
+	}
+	var req statusReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if req.Status != "received" && req.Status != "read" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(errorResponse{Error: "Lo status deve essere 'received' o 'read'"})
+		return
+	}
+
+	err := rt.db.UpdateConversationStatus(conversationID, userID, req.Status)
+	if err != nil {
+		rt.baseLogger.WithError(err).Error("Errore durante l'aggiornamento dello status")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

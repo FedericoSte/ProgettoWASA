@@ -50,6 +50,10 @@ func (rt *_router) registerRoutes() {
 
 	// ---------------- CONVERSAZIONI E GRUPPI ----------------
 	rt.router.GET("/conversazioni", rt.wrapAuth(rt.getMyConversations))
+
+	// NUOVA ROTTA PER LA CREAZIONE DELLA CONVERSAZIONE
+	rt.router.POST("/conversazioni", rt.wrapAuth(rt.createConversation))
+
 	rt.router.GET("/conversazioni/:conversazioneID", rt.wrapAuth(rt.getConversation))
 	rt.router.PATCH("/conversazioni/:conversazioneID/name", rt.wrapAuth(rt.setGroupName))
 	rt.router.PATCH("/conversazioni/:conversazioneID/photo", rt.wrapAuth(rt.setGroupPhoto))
@@ -60,6 +64,8 @@ func (rt *_router) registerRoutes() {
 
 	// ---------------- MESSAGGI E COMMENTI ----------------
 	rt.router.POST("/conversazioni/:conversazioneID/messaggi", rt.wrapAuth(rt.sendMessage))
+
+	rt.router.PATCH("/conversazioni/:conversazioneID/status", rt.wrapAuth(rt.updateChatStatus))
 
 	// RISOLUZIONE CONFLITTO: L'URL del forward è stato modificato per non collidere con :messaggioID
 	rt.router.POST("/conversazioni/:conversazioneID/forward", rt.wrapAuth(rt.forwardMessage))
