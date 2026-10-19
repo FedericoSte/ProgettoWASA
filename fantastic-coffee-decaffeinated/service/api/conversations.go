@@ -159,27 +159,56 @@ func (rt *_router) addToGroup(w http.ResponseWriter, r *http.Request, ps httprou
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// leaveGroup rimuove l'utente autenticato dai partecipanti del gruppo.
-// Endpoint: DELETE /conversazioni/:conversazioneID/partecipanti/me
+// leaveGroup gestisce sia l'abbandono del gruppo da parte dell'utente loggato (:partecipanteID == "me"),
+// sia la rimozione di un partecipante da parte del proprietario del gruppo (:partecipanteID == "<username>").
+// Endpoint: DELETE /conversazioni/:conversazioneID/partecipanti/:partecipanteID
 func (rt *_router) leaveGroup(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
-	userID := ctx.UserID // "me" è l'utente loggato!
+	callerID := ctx.UserID
 	conversationID := ps.ByName("conversazioneID")
+	targetParticipant := ps.ByName("partecipanteID")
 
-	// Esegui la rimozione nel database
-	err := rt.db.LeaveGroup(conversationID, userID)
-	if err != nil {
-		if err.Error() == "not found: user was not in the group or group does not exist" {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(errorResponse{Error: "Non fai parte di questa conversazione o essa non esiste"})
+	// Caso 1: L'utente loggato lascia il gruppo o elimina la chat privata ("me")
+	if targetParticipant == "" || targetParticipant == "me" {
+		err := rt.db.LeaveGroup(conversationID, callerID)
+		if err != nil {
+			if err.Error() == "not found: user was not in the group or group does not exist" {
+				w.WriteHeader(http.StatusNotFound)
+				json.NewEncoder(w).Encode(errorResponse{Error: "Non fai parte di questa conversazione o essa non esiste"})
+				return
+			}
+			rt.baseLogger.WithError(err).Error("Errore nell'abbandono del gruppo")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(errorResponse{Error: "Errore interno del server"})
 			return
 		}
-		rt.baseLogger.WithError(err).Error("Errore nell'abbandono del gruppo")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Caso 2: Il proprietario del gruppo rimuove un altro utente dal gruppo
+	err := rt.db.RemoveFromGroup(conversationID, targetParticipant, callerID)
+	if err != nil {
+		if err.Error() == "unauthorized: caller is not the owner of the group" {
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(errorResponse{Error: "Solo il proprietario può rimuovere membri dal gruppo"})
+			return
+		}
+		if err.Error() == "not found: group does not exist" || err.Error() == "not found: user to remove does not exist" || err.Error() == "not found: user was not in the group" {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(errorResponse{Error: "Utente o gruppo non trovato"})
+			return
+		}
+		if err.Error() == "bad request: owner cannot remove themselves" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(errorResponse{Error: "Il proprietario non può rimuovere se stesso"})
+			return
+		}
+		rt.baseLogger.WithError(err).Error("Errore nella rimozione del partecipante dal gruppo")
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(errorResponse{Error: "Errore interno del server"})
 		return
 	}
 
-	// Risposta di successo: 204 No Content
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -250,7 +279,7 @@ func (rt *_router) deleteMessage(w http.ResponseWriter, r *http.Request, ps http
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// setGroupName modifica il nome di una conversazione di gruppo.
+// setGroupName modifica il nome di una conversazione di gruppo (solo proprietario).
 // Endpoint: PATCH /conversazioni/:conversazioneID/name
 func (rt *_router) setGroupName(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
 	callerID := ctx.UserID
@@ -269,9 +298,14 @@ func (rt *_router) setGroupName(w http.ResponseWriter, r *http.Request, ps httpr
 
 	err = rt.db.SetGroupName(conversationID, req.Name, callerID)
 	if err != nil {
-		if err.Error() == "unauthorized: caller is not in the group" {
+		if err.Error() == "unauthorized: caller is not the owner of the group" || err.Error() == "unauthorized: caller is not in the group" {
 			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode(errorResponse{Error: "Non hai i permessi per modificare questo gruppo"})
+			json.NewEncoder(w).Encode(errorResponse{Error: "Solo il proprietario può modificare il nome del gruppo"})
+			return
+		}
+		if err.Error() == "not found: group does not exist" {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(errorResponse{Error: "Gruppo non trovato"})
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
@@ -280,7 +314,7 @@ func (rt *_router) setGroupName(w http.ResponseWriter, r *http.Request, ps httpr
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// setGroupPhoto modifica la foto di una conversazione di gruppo.
+// setGroupPhoto modifica la foto di una conversazione di gruppo (solo proprietario).
 // Endpoint: PATCH /conversazioni/:conversazioneID/photo
 func (rt *_router) setGroupPhoto(w http.ResponseWriter, r *http.Request, ps httprouter.Params, ctx reqcontext.RequestContext) {
 	callerID := ctx.UserID
@@ -299,9 +333,14 @@ func (rt *_router) setGroupPhoto(w http.ResponseWriter, r *http.Request, ps http
 
 	err = rt.db.SetGroupPhoto(conversationID, req.Photo, callerID)
 	if err != nil {
-		if err.Error() == "unauthorized: caller is not in the group" {
+		if err.Error() == "unauthorized: caller is not the owner of the group" || err.Error() == "unauthorized: caller is not in the group" {
 			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode(errorResponse{Error: "Non hai i permessi per modificare questo gruppo"})
+			json.NewEncoder(w).Encode(errorResponse{Error: "Solo il proprietario può modificare la foto del gruppo"})
+			return
+		}
+		if err.Error() == "not found: group does not exist" {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(errorResponse{Error: "Gruppo non trovato"})
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)

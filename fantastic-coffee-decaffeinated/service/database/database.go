@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // AppDatabase is the high level interface for the DB
@@ -18,6 +19,7 @@ type AppDatabase interface {
 	DeleteMessage(messageID string, callerID string) error
 	AddToGroup(conversationID string, userID string, callerID string) error
 	LeaveGroup(conversationID string, userID string) error
+	RemoveFromGroup(conversationID string, userToRemove string, callerID string) error
 	SetMyUserName(userID string, newName string) error
 	SetMyPhoto(userID string, photoPath string) error
 	SetGroupName(conversationID string, newName string, callerID string) error
@@ -61,7 +63,9 @@ func New(db *sql.DB) (AppDatabase, error) {
 			id TEXT PRIMARY KEY,
 			type TEXT NOT NULL, -- 'single' o 'group'
 			name TEXT,
-			photo TEXT
+			photo TEXT,
+			owner TEXT,
+			FOREIGN KEY (owner) REFERENCES users(id) ON DELETE SET NULL
 		);
 
 		CREATE TABLE participants (
@@ -105,6 +109,31 @@ func New(db *sql.DB) (AppDatabase, error) {
 		_, err = db.Exec(sqlStmt)
 		if err != nil {
 			return nil, fmt.Errorf("error creating database structure: %w", err)
+		}
+	} else if err != nil {
+		return nil, fmt.Errorf("error checking database structure: %w", err)
+	} else {
+		// Migrazione automatica per database preesistenti:
+		// 1. Aggiunge la colonna 'owner' a 'conversations' se non esiste ancora
+		_, alterErr := db.Exec(`ALTER TABLE conversations ADD COLUMN owner TEXT;`)
+		if alterErr != nil && !strings.Contains(alterErr.Error(), "duplicate column name") {
+			return nil, fmt.Errorf("error migrating conversations table: %w", alterErr)
+		}
+
+		// 2. Popola 'owner' per i gruppi già esistenti usando il primo partecipante inserito (il creatore)
+		_, updateErr := db.Exec(`
+			UPDATE conversations
+			SET owner = (
+				SELECT p.user_id
+				FROM participants p
+				WHERE p.conversation_id = conversations.id
+				ORDER BY p.rowid ASC
+				LIMIT 1
+			)
+			WHERE owner IS NULL OR owner = '';
+		`)
+		if updateErr != nil {
+			return nil, fmt.Errorf("error populating owner for existing conversations: %w", updateErr)
 		}
 	}
 

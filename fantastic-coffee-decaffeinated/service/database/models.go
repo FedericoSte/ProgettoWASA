@@ -14,6 +14,8 @@ type Conversation struct {
 	ID          string    `json:"id"`
 	Name        string    `json:"name,omitempty"`
 	Photo       string    `json:"photo,omitempty"`
+	Owner       string    `json:"owner,omitempty"`   // Username del creatore/proprietario del gruppo
+	Members     []string  `json:"members,omitempty"` // Lista degli username dei partecipanti
 	LastMessage string    `json:"lastMessage,omitempty"`
 	Messages    []Message `json:"messages,omitempty"`
 	UnreadCount int       `json:"unreadCount"` // Aggiunto per le notifiche stile WhatsApp

@@ -60,7 +60,7 @@ func (rt *_router) registerRoutes() {
 
 	// Partecipanti al gruppo
 	rt.router.POST("/conversazioni/:conversazioneID/partecipanti", rt.wrapAuth(rt.addToGroup))
-	rt.router.DELETE("/conversazioni/:conversazioneID/partecipanti/me", rt.wrapAuth(rt.leaveGroup))
+	rt.router.DELETE("/conversazioni/:conversazioneID/partecipanti/:partecipanteID", rt.wrapAuth(rt.leaveGroup))
 
 	// ---------------- MESSAGGI E COMMENTI ----------------
 	rt.router.POST("/conversazioni/:conversazioneID/messaggi", rt.wrapAuth(rt.sendMessage))

@@ -70,46 +70,57 @@
         </div>
         
         <div class="messages-list" ref="messagesContainer">
-          <div 
-            v-for="msg in selectedChatDetails.messages || []" 
-            :key="msg.id"
-            :class="['message-row', isMine(msg) ? 'mine' : 'theirs']"
-          >
-            <img 
-              v-if="!isMine(msg) && !isPrivateChat(selectedConversation)" 
-              :src="getAvatarFallback(getSenderName(msg))" 
-              class="msg-avatar" 
-              alt="User"
-            >
-
-            <div class="message-bubble" @contextmenu.prevent="openMessageMenu($event, msg)">
-              <div class="message-sender" v-if="!isMine(msg) && !isPrivateChat(selectedConversation)">
-                {{ getSenderName(msg) }}
-              </div>
-              
-              <div class="message-body">
-                <span class="message-content">{{ msg.content }}</span>
-                <span class="message-meta">
-                  <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
-                  <span v-if="isMine(msg)" class="message-ticks" :class="getTickClass(msg)">
-                    {{ getTickIcon(msg) }}
-                  </span>
-                </span>
-              </div>
-              
-              <div class="reactions-container" v-if="msg.reactions && msg.reactions.length > 0">
-                <span 
-                  v-for="reaction in msg.reactions" 
-                  :key="reaction.id" 
-                  @click.stop="removeReaction(msg, reaction)"
-                  class="reaction-badge"
-                  title="Clicca per rimuovere"
-                >
-                  {{ reaction.content }}
-                </span>
+          <template v-for="msg in selectedChatDetails.messages || []" :key="msg.id">
+            
+            <!-- MESSAGGIO SPECIALE DI SISTEMA (Stile WhatsApp) -->
+            <div v-if="msg.type === 'system'" class="system-message-row">
+              <div class="system-message-pill">
+                {{ formatSystemMessage(msg) }}
               </div>
             </div>
-          </div>
+
+            <!-- MESSAGGIO NORMALE -->
+            <div 
+              v-else
+              :class="['message-row', isMine(msg) ? 'mine' : 'theirs']"
+            >
+              <img 
+                v-if="!isMine(msg) && !isPrivateChat(selectedConversation)" 
+                :src="getAvatarFallback(getSenderName(msg))" 
+                class="msg-avatar" 
+                alt="User"
+              >
+
+              <div class="message-bubble" @contextmenu.prevent="openMessageMenu($event, msg)">
+                <div class="message-sender" v-if="!isMine(msg) && !isPrivateChat(selectedConversation)">
+                  {{ getSenderName(msg) }}
+                </div>
+                
+                <div class="message-body">
+                  <span class="message-content">{{ msg.content }}</span>
+                  <span class="message-meta">
+                    <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
+                    <span v-if="isMine(msg)" class="message-ticks" :class="getTickClass(msg)">
+                      {{ getTickIcon(msg) }}
+                    </span>
+                  </span>
+                </div>
+                
+                <div class="reactions-container" v-if="msg.reactions && msg.reactions.length > 0">
+                  <span 
+                    v-for="reaction in msg.reactions" 
+                    :key="reaction.id" 
+                    @click.stop="removeReaction(msg, reaction)"
+                    class="reaction-badge"
+                    title="Clicca per rimuovere"
+                  >
+                    {{ reaction.content }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+          </template>
         </div>
         
         <div class="message-input">
@@ -138,12 +149,12 @@
         <div class="info-profile-section">
           <div class="avatar-edit-container">
             <img :src="getChatAvatar(selectedConversation)" class="info-large-avatar" alt="Avatar">
-            <button v-if="!isPrivateChat(selectedConversation)" class="btn-edit-avatar" @click.stop="openModal('changePhoto')" title="Cambia foto">📷</button>
+            <button v-if="!isPrivateChat(selectedConversation) && isGroupOwner" class="btn-edit-avatar" @click.stop="openModal('changePhoto')" title="Cambia foto">📷</button>
           </div>
           
           <div class="name-edit-container">
             <h2 class="info-name">{{ getDisplayConversationName(selectedConversation) }}</h2>
-            <button v-if="!isPrivateChat(selectedConversation)" class="btn-edit-name" @click.stop="openModal('renameGroup')" title="Rinomina gruppo">✏️</button>
+            <button v-if="!isPrivateChat(selectedConversation) && isGroupOwner" class="btn-edit-name" @click.stop="openModal('renameGroup')" title="Rinomina gruppo">✏️</button>
           </div>
           <p class="info-subtitle">{{ isPrivateChat(selectedConversation) ? 'In linea' : currentGroupMembers.length + ' membri' }}</p>
         </div>
@@ -160,7 +171,15 @@
                <p class="member-name">{{ member }} <span class="me-label" v-if="member === myUsername">(tu)</span></p>
                <p class="member-status">in linea</p>
              </div>
-             <span class="member-badge" v-if="member === myUsername">Proprietario</span>
+             <span class="member-badge" v-if="member === groupOwner">Proprietario</span>
+             <button 
+               v-if="isGroupOwner && member !== myUsername" 
+               class="btn-remove-member" 
+               @click.stop="removeMemberFromGroup(member)"
+               title="Rimuovi dal gruppo"
+             >
+               ✕
+             </button>
            </div>
         </div>
       </div>
@@ -227,8 +246,21 @@
     </div>
 
     <!-- ================= MENU CONTESTUALI ================= -->
-    <div v-if="chatMenu.show" class="custom-context-menu" :style="{ top: chatMenu.y + 'px', left: chatMenu.x + 'px' }">
-      <button @click="deleteChat(chatMenu.conversation)" class="btn-delete-action">🗑️ Elimina Chat</button>
+    <div v-if="chatMenu.show && chatMenu.conversation" class="custom-context-menu" :style="{ top: chatMenu.y + 'px', left: chatMenu.x + 'px' }">
+      <button 
+        v-if="isPrivateChat(chatMenu.conversation)" 
+        @click.stop="deleteChat(chatMenu.conversation)" 
+        class="btn-delete-action"
+      >
+        🗑️ Elimina Chat
+      </button>
+      <button 
+        v-else 
+        @click.stop="leaveToGroup(chatMenu.conversation)" 
+        class="btn-delete-action"
+      >
+        🚪 Lascia il gruppo
+      </button>
     </div>
 
     <div v-if="msgMenu.show" class="custom-context-menu msg-menu" :style="{ top: msgMenu.y + 'px', left: msgMenu.x + 'px' }">
@@ -286,15 +318,26 @@ export default {
         return this.getDisplayConversationName(conv).toLowerCase().includes(lowerQuery);
       });
     },
+    // Legge la lista reale dei membri restituita dal backend (tabella participants)
     currentGroupMembers() {
-      if (!this.selectedChatDetails || !this.selectedChatDetails.messages) return [this.myUsername]; 
-      const membersSet = new Set();
-      membersSet.add(this.myUsername); 
-      this.selectedChatDetails.messages.forEach(msg => {
-        const name = this.getSenderName(msg);
-        if (name && name !== this.myTokenId) membersSet.add(name);
-      });
-      return Array.from(membersSet);
+      if (
+        this.selectedChatDetails &&
+        Array.isArray(this.selectedChatDetails.members) &&
+        this.selectedChatDetails.members.length > 0
+      ) {
+        return this.selectedChatDetails.members;
+      }
+      return [this.myUsername];
+    },
+    // Restituisce lo username del creatore/proprietario del gruppo
+    groupOwner() {
+      if (!this.selectedConversation) return '';
+      return this.selectedChatDetails.owner || this.selectedConversation.owner || '';
+    },
+    // Verifica se l'utente loggato è il proprietario del gruppo
+    isGroupOwner() {
+      if (!this.selectedConversation || this.isPrivateChat(this.selectedConversation)) return false;
+      return this.groupOwner === this.myUsername;
     },
     modalConfig() {
       const configs = {
@@ -320,6 +363,7 @@ export default {
   },
   async mounted() {
     await this.fetchConversations();
+    this.startPolling();
   },
   beforeUnmount() {
     this.stopPolling();
@@ -336,6 +380,23 @@ export default {
         this.selectedFileBase64 = e.target.result;
       };
       reader.readAsDataURL(file);
+    },
+
+    // ----------------- FORMATTAZIONE MESSAGGI DI SISTEMA -----------------
+    formatSystemMessage(msg) {
+      if (!msg || !msg.content) return '';
+      const content = msg.content.trim();
+      if (this.isMine(msg)) {
+        if (content.startsWith('ha ')) {
+          return 'Hai ' + content.substring(3);
+        }
+        return content;
+      } else {
+        if (content.startsWith('ha ')) {
+          return `${this.getSenderName(msg)} ${content}`;
+        }
+        return content;
+      }
     },
 
     // ----------------- GESTIONE SPUNTE E AVATAR -----------------
@@ -402,21 +463,40 @@ export default {
       this.closeAllMenus();
       await this.loadCurrentChat();
       this.scrollToBottom();
-      this.startPolling();
     },
 
     async loadCurrentChat() {
       if (!this.selectedConversation) return;
+      const convId = this.selectedConversation.id;
       try {
-        const res = await api.get(`/conversazioni/${this.selectedConversation.id}`);
+        const res = await api.get(`/conversazioni/${convId}`);
+        if (!this.selectedConversation || this.selectedConversation.id !== convId) return;
+
         const oldLength = this.selectedChatDetails.messages ? this.selectedChatDetails.messages.length : 0;
         this.selectedChatDetails = res.data;
+        if (res.data.owner) {
+          this.selectedConversation.owner = res.data.owner;
+        }
         if (this.selectedChatDetails.messages && this.selectedChatDetails.messages.length > oldLength) {
           this.scrollToBottom();
         }
-        await api.patch(`/conversazioni/${this.selectedConversation.id}/status`, { status: 'read' }).catch(()=>{});
-        this.selectedConversation.unreadCount = 0;
-      } catch (e) { console.error(e); }
+        await api.patch(`/conversazioni/${convId}/status`, { status: 'read' }).catch(()=>{});
+        if (this.selectedConversation && this.selectedConversation.id === convId) {
+          this.selectedConversation.unreadCount = 0;
+        }
+      } catch (e) {
+        // Se il gruppo è stato cancellato dal proprietario o siamo stati rimossi (404 Not Found), chiudiamo la vista attiva
+        if (e.response && e.response.status === 404) {
+          if (this.selectedConversation && this.selectedConversation.id === convId) {
+            this.selectedConversation = null;
+            this.selectedChatDetails = {};
+            this.showInfoSidebar = false;
+          }
+          await this.fetchConversations();
+        } else {
+          console.error(e);
+        }
+      }
     },
 
     async sendMessage() {
@@ -433,10 +513,18 @@ export default {
 
     startPolling() {
       this.stopPolling();
-      this.pollingInterval = setInterval(() => { this.loadCurrentChat(); }, 3000);
+      this.pollingInterval = setInterval(async () => {
+        await this.fetchConversations();
+        if (this.selectedConversation) {
+          await this.loadCurrentChat();
+        }
+      }, 3000);
     },
     stopPolling() {
-      if (this.pollingInterval) clearInterval(this.pollingInterval);
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+        this.pollingInterval = null;
+      }
     },
     scrollToBottom() {
       this.$nextTick(() => {
@@ -483,18 +571,68 @@ export default {
       this.msgMenu.message = msg;
       this.msgMenu.show = true;
     },
+
+    // Elimina una chat privata tra due utenti
     async deleteChat(conv) {
       this.closeAllMenus();
-      if (confirm(`Sei sicuro di voler uscire/eliminare la chat?`)) {
+      if (!conv) return;
+      if (confirm(`Sei sicuro di voler eliminare la chat con ${this.getDisplayConversationName(conv)}?`)) {
         try {
           await api.delete(`/conversazioni/${conv.id}/partecipanti/me`);
           if (this.selectedConversation && this.selectedConversation.id === conv.id) {
             this.selectedConversation = null;
+            this.selectedChatDetails = {};
             this.showInfoSidebar = false;
-            this.stopPolling();
           }
           await this.fetchConversations();
-        } catch (e) { console.error(e); }
+        } catch (e) {
+          console.error(e);
+          alert("Errore durante l'eliminazione della chat.");
+        }
+      }
+    },
+
+    // Lascia un gruppo (se chi esce è il proprietario, il gruppo viene eliminato per tutti)
+    async leaveToGroup(conv) {
+      this.closeAllMenus();
+      if (!conv) return;
+
+      const isOwner =
+        (conv.owner && conv.owner === this.myUsername) ||
+        (this.selectedConversation && this.selectedConversation.id === conv.id && this.isGroupOwner);
+
+      const confirmMsg = isOwner
+        ? `Sei il proprietario del gruppo "${this.getDisplayConversationName(conv)}". Uscendo, il gruppo verrà eliminato per tutti i partecipanti. Vuoi continuare?`
+        : `Sei sicuro di voler lasciare il gruppo "${this.getDisplayConversationName(conv)}"?`;
+
+      if (confirm(confirmMsg)) {
+        try {
+          await api.delete(`/conversazioni/${conv.id}/partecipanti/me`);
+          if (this.selectedConversation && this.selectedConversation.id === conv.id) {
+            this.selectedConversation = null;
+            this.selectedChatDetails = {};
+            this.showInfoSidebar = false;
+          }
+          await this.fetchConversations();
+        } catch (e) {
+          console.error(e);
+          alert("Errore durante l'uscita dal gruppo.");
+        }
+      }
+    },
+
+    // Rimuove un membro dal gruppo (solo proprietario)
+    async removeMemberFromGroup(memberName) {
+      if (!this.selectedConversation || !this.isGroupOwner) return;
+      if (confirm(`Vuoi rimuovere ${memberName} dal gruppo?`)) {
+        try {
+          await api.delete(`/conversazioni/${this.selectedConversation.id}/partecipanti/${encodeURIComponent(memberName)}`);
+          await this.loadCurrentChat();
+          await this.fetchConversations();
+        } catch (e) {
+          console.error(e);
+          alert("Errore durante la rimozione dell'utente dal gruppo.");
+        }
       }
     },
 
@@ -525,16 +663,18 @@ export default {
           await this.createConversationAPI(input, null);
         } else if (mType === 'addMember' && input) {
           await api.post(`/conversazioni/${this.selectedConversation.id}/partecipanti`, { userId: input });
-          await api.post(`/conversazioni/${this.selectedConversation.id}/messaggi`, { content: `Ho aggiunto ${input} al gruppo!`, type: 'text' });
           await this.loadCurrentChat();
+          await this.fetchConversations();
         } else if (mType === 'renameGroup' && input) {
           await api.patch(`/conversazioni/${this.selectedConversation.id}/name`, { name: input });
           this.selectedConversation.name = input;
+          await this.loadCurrentChat();
           await this.fetchConversations();
         } else if (mType === 'changePhoto' && this.selectedFileBase64) {
           // Invio dell'immagine base64 per il gruppo
           await api.patch(`/conversazioni/${this.selectedConversation.id}/photo`, { photo: this.selectedFileBase64 });
           this.selectedConversation.photo = this.selectedFileBase64;
+          await this.loadCurrentChat();
           await this.fetchConversations();
         } else if (mType === 'myProfile') {
           // Aggiornamento Nome Utente
@@ -551,8 +691,11 @@ export default {
             this.myPhoto = this.selectedFileBase64;
           }
           await this.fetchConversations();
+          if (this.selectedConversation) {
+            await this.loadCurrentChat();
+          }
         } else if (mType === 'forward' && targetId) {
-          await api.post(`/conversazioni/${targetId}/messaggi/forward`, { forwardedMessageId: this.msgMenu.message.id });
+          await api.post(`/conversazioni/${targetId}/forward`, { forwardedMessageId: this.msgMenu.message.id });
           alert("Messaggio inoltrato!");
         }
       } catch (e) {
@@ -576,6 +719,20 @@ export default {
         const response = await api.get('/conversazioni');
         this.conversations = response.data || [];
         
+        // Se la conversazione attualmente selezionata non esiste più (es. gruppo eliminato o siamo stati rimossi), chiudila
+        if (this.selectedConversation) {
+          const updatedConv = this.conversations.find(c => c.id === this.selectedConversation.id);
+          if (!updatedConv) {
+            this.selectedConversation = null;
+            this.selectedChatDetails = {};
+            this.showInfoSidebar = false;
+          } else {
+            this.selectedConversation.name = updatedConv.name;
+            this.selectedConversation.photo = updatedConv.photo;
+            this.selectedConversation.owner = updatedConv.owner;
+          }
+        }
+
         for (let conv of this.conversations) {
           if (conv.unreadCount > 0) {
              api.patch(`/conversazioni/${conv.id}/status`, { status: 'received' }).catch(()=>{});
@@ -660,6 +817,25 @@ export default {
 .header-info h3 { margin: 0; font-size: 1.1rem; color: #111;}
 .header-status { font-size: 0.8rem; color: #888; }
 
+/* ================= MESSAGGI SPECIALI DI SISTEMA (Stile WhatsApp) ================= */
+.system-message-row {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: 4px 0;
+}
+.system-message-pill {
+  background-color: #ffffff;
+  color: #54656f;
+  font-size: 0.85rem;
+  padding: 6px 14px;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  text-align: center;
+  max-width: 80%;
+  user-select: none;
+}
+
 /* ================= MESSAGGI E SPUNTE ================= */
 .messages-list { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .message-row { display: flex; width: 100%; align-items: flex-end; margin-bottom: 5px; gap: 8px;}
@@ -735,6 +911,8 @@ export default {
 .me-label { color: #888; font-weight: normal; font-size: 0.85rem;}
 .member-status { margin: 0; font-size: 0.85rem; color: #4c9ee3; }
 .member-badge { font-size: 0.75rem; background: #e5f1ff; color: #4c9ee3; padding: 3px 8px; border-radius: 12px; font-weight: 600; }
+.btn-remove-member { background: none; border: none; color: #ccc; font-size: 1rem; cursor: pointer; padding: 4px 8px; border-radius: 50%; transition: 0.2s; }
+.btn-remove-member:hover { color: #ff3b30; background-color: #fff0f0; }
 
 .fab-add-member { position: absolute; bottom: 20px; right: 20px; width: 55px; height: 55px; border-radius: 50%; background-color: #4c9ee3; border: none; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.2s; }
 .fab-add-member:hover { transform: scale(1.05); background-color: #3b88c3; }

@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/gofrs/uuid"
 )
@@ -10,18 +11,28 @@ import (
 // GetMyConversations ritorna la lista delle conversazioni con il conteggio dei messaggi NON letti
 func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 	query := `
-		SELECT c.id, c.name, c.photo, 
-			(SELECT content FROM messages m WHERE m.conversation_id = c.id ORDER BY timestamp DESC LIMIT 1) as last_message,
+		SELECT c.id, c.name, c.photo, u_owner.name,
+			(SELECT 
+				CASE 
+					WHEN m.type = 'system' AND m.sender = ? AND m.content LIKE 'ha %' THEN 'Hai ' || SUBSTR(m.content, 4)
+					WHEN m.type = 'system' AND m.content LIKE 'ha %' THEN u_msg.name || ' ' || m.content
+					ELSE m.content
+				END
+			 FROM messages m
+			 JOIN users u_msg ON m.sender = u_msg.id
+			 WHERE m.conversation_id = c.id
+			 ORDER BY m.timestamp DESC LIMIT 1) as last_message,
 			(SELECT COUNT(*) FROM messages m 
-			 WHERE m.conversation_id = c.id AND m.sender != ? 
+			 WHERE m.conversation_id = c.id AND m.sender != ? AND m.type != 'system'
 			 AND m.id NOT IN (SELECT message_id FROM message_status WHERE user_id = ? AND status = 'read')
 			) as unread_count
 		FROM conversations c
 		INNER JOIN participants p ON c.id = p.conversation_id
+		LEFT JOIN users u_owner ON c.owner = u_owner.id
 		WHERE p.user_id = ?
 	`
-	// Passiamo userID tre volte per riempire i tre "?" nella query
-	rows, err := db.c.Query(query, userID, userID, userID)
+	// Passiamo userID quattro volte per riempire i quattro "?" nella query
+	rows, err := db.c.Query(query, userID, userID, userID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("error querying conversations: %w", err)
 	}
@@ -30,10 +41,10 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 	var convs []Conversation
 	for rows.Next() {
 		var conv Conversation
-		var name, photo, lastMsg sql.NullString
+		var name, photo, ownerName, lastMsg sql.NullString
 		var unreadCount int
 
-		err := rows.Scan(&conv.ID, &name, &photo, &lastMsg, &unreadCount)
+		err := rows.Scan(&conv.ID, &name, &photo, &ownerName, &lastMsg, &unreadCount)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning conversation: %w", err)
 		}
@@ -43,6 +54,9 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 		}
 		if photo.Valid {
 			conv.Photo = photo.String
+		}
+		if ownerName.Valid {
+			conv.Owner = ownerName.String
 		}
 		if lastMsg.Valid {
 			conv.LastMessage = lastMsg.String
@@ -58,17 +72,18 @@ func (db *appdbimpl) GetMyConversations(userID string) ([]Conversation, error) {
 	return convs, nil
 }
 
-// GetConversation ritorna i messaggi calcolando lo stato delle spunte e unendo i nomi utente
+// GetConversation ritorna i dettagli della conversazione, i suoi partecipanti, il proprietario e i messaggi
 func (db *appdbimpl) GetConversation(conversationID string, userID string) (Conversation, error) {
 	var conv Conversation
-	var name, photo sql.NullString
+	var name, photo, ownerName sql.NullString
 
 	err := db.c.QueryRow(`
-		SELECT c.id, c.name, c.photo 
+		SELECT c.id, c.name, c.photo, u_owner.name
 		FROM conversations c
 		INNER JOIN participants p ON c.id = p.conversation_id
+		LEFT JOIN users u_owner ON c.owner = u_owner.id
 		WHERE c.id = ? AND p.user_id = ?
-	`, conversationID, userID).Scan(&conv.ID, &name, &photo)
+	`, conversationID, userID).Scan(&conv.ID, &name, &photo, &ownerName)
 
 	if err != nil {
 		return conv, err
@@ -80,12 +95,38 @@ func (db *appdbimpl) GetConversation(conversationID string, userID string) (Conv
 	if photo.Valid {
 		conv.Photo = photo.String
 	}
+	if ownerName.Valid {
+		conv.Owner = ownerName.String
+	}
+
+	// Estrazione della lista reale dei partecipanti dalla tabella participants
+	memberRows, err := db.c.Query(`
+		SELECT u.name
+		FROM participants p
+		INNER JOIN users u ON p.user_id = u.id
+		LEFT JOIN conversations c ON c.id = p.conversation_id
+		WHERE p.conversation_id = ?
+		ORDER BY CASE WHEN p.user_id = c.owner THEN 0 ELSE 1 END, p.rowid ASC
+	`, conversationID)
+	if err != nil {
+		return conv, fmt.Errorf("error querying conversation members: %w", err)
+	}
+	defer memberRows.Close()
+
+	conv.Members = make([]string, 0)
+	for memberRows.Next() {
+		var memberName string
+		if err := memberRows.Scan(&memberName); err != nil {
+			return conv, fmt.Errorf("error scanning member name: %w", err)
+		}
+		conv.Members = append(conv.Members, memberName)
+	}
 
 	// MEGA-QUERY: Estrae i messaggi, unisce il vero nome dell'utente e calcola lo stato (sent, received, read)
 	msgQuery := `
 		SELECT m.id, u.name as sender, m.content, m.type, m.timestamp,
 			CASE
-				WHEN m.sender != ? THEN '' 
+				WHEN m.type = 'system' OR m.sender != ? THEN '' 
 				ELSE (
 					SELECT CASE
 						WHEN COUNT(p.user_id) = 0 THEN 'sent'
@@ -160,16 +201,16 @@ func (db *appdbimpl) UpdateConversationStatus(conversationID string, userID stri
 		INSERT INTO message_status (message_id, user_id, status)
 		SELECT id, ?, ?
 		FROM messages
-		WHERE conversation_id = ? AND sender != ?
+		WHERE conversation_id = ? AND sender != ? AND type != 'system'
 		ON CONFLICT(message_id, user_id) DO UPDATE SET status = ?
 	`
 	_, err := db.c.Exec(query, userID, status, conversationID, userID, status)
 	return err
 }
 
-// CreateConversation crea un nuovo record nella tabella conversations e aggiunge il creatore in participants.
+// CreateConversation crea un nuovo record nella tabella conversations impostando creatorID come owner
+// e aggiunge il creatore in participants.
 func (db *appdbimpl) CreateConversation(name string, creatorID string) (Conversation, error) {
-	// Genera un nuovo UUID per la conversazione
 	u, err := uuid.NewV4()
 	if err != nil {
 		return Conversation{}, fmt.Errorf("failed to generate UUID: %w", err)
@@ -182,28 +223,41 @@ func (db *appdbimpl) CreateConversation(name string, creatorID string) (Conversa
 	}
 
 	chatType := "group"
-	_, err = tx.Exec("INSERT INTO conversations (id, name, type) VALUES (?, ?, ?)", newID, name, chatType)
+	_, err = tx.Exec("INSERT INTO conversations (id, name, type, owner) VALUES (?, ?, ?, ?)", newID, name, chatType, creatorID)
 	if err != nil {
 		tx.Rollback()
 		return Conversation{}, fmt.Errorf("failed to insert conversation: %w", err)
 	}
 
-	// Aggiungi il creatore alla tabella partecipanti
 	_, err = tx.Exec("INSERT INTO participants (conversation_id, user_id) VALUES (?, ?)", newID, creatorID)
 	if err != nil {
 		tx.Rollback()
 		return Conversation{}, fmt.Errorf("failed to insert participant: %w", err)
 	}
 
-	// Conferma le scritture sul DB
+	var creatorName string
+	_ = tx.QueryRow("SELECT name FROM users WHERE id = ?", creatorID).Scan(&creatorName)
+
 	err = tx.Commit()
 	if err != nil {
 		return Conversation{}, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
+	// Se è un gruppo (non una chat privata), inseriamo il messaggio di sistema di creazione gruppo
+	if !strings.Contains(name, "|") {
+		_ = db.insertSystemMessage(newID, creatorID, fmt.Sprintf("ha creato il gruppo \"%s\".", name))
+	}
+
+	members := make([]string, 0)
+	if creatorName != "" {
+		members = append(members, creatorName)
+	}
+
 	newConv := Conversation{
 		ID:       newID,
 		Name:     name,
+		Owner:    creatorName,
+		Members:  members,
 		Messages: make([]Message, 0),
 	}
 
