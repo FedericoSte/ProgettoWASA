@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  webapi:
+    build: .
+    container_name: fantastic-coffee-app
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    volumes:
+      - sqlite_data:/app/data
+
+volumes:
+  sqlite_data:
